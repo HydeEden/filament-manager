@@ -93,13 +93,14 @@
         background-image: var(--he-gradient);
         opacity: 0.9;
       }
+      /* The header is ordinary in-flow content, NOT sticky: it holds the
+         logo, title, and the whole "On hand" summary card, so pinning it
+         filled most of a phone screen and left the inventory scrolling
+         underneath it. It now scrolls away with the page like everything
+         else, and the content below gets the full viewport. */
       .he-header {
-        position: sticky;
-        top: 0;
-        z-index: 20;
+        position: relative;
         background: rgba(8, 6, 8, 0.88);
-        -webkit-backdrop-filter: blur(10px);
-        backdrop-filter: blur(10px);
         border-bottom: 1px solid var(--border);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
         padding-top: env(safe-area-inset-top);
@@ -226,6 +227,12 @@
       .logo-img { display: block; margin: 0 auto; height: auto; width: 100%; max-width: 28rem; }
       @media (min-width: 640px) { .logo-img { max-width: 32rem; } }
       .app-title { font-size: 48px; line-height: 1; font-weight: 800; letter-spacing: -0.02em; margin: 0; min-width: 0; }
+      /* Phones: shrink the masthead so the inventory, not the header,
+         fills the first screen. */
+      @media (max-width: 639px) {
+        .app-title { font-size: 32px; }
+        .logo-img { max-width: 19rem; }
+      }
       .sync-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
 
       /* Section headings */
