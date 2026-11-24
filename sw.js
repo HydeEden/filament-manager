@@ -8,7 +8,7 @@
  * account in the browser for offline opening and syncs when the
  * connection is back. Supabase requests always go to the network.
  */
-var CACHE_NAME = "filament-manager-shell-v5";
+var CACHE_NAME = "filament-manager-shell-v7";
 var SHELL_URLS = [
   "./",
   "index.html",

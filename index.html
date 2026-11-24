@@ -345,12 +345,53 @@
         border: 1px solid var(--border); border-radius: var(--radius);
         background: var(--surface); padding: 12px 16px;
       }
+      /* Tracking block on an incoming order card: its own dedicated
+         spot, editable in place at any time after staging. */
+      .tracking-box {
+        margin-top: 12px;
+        border: 1px solid var(--border); border-radius: 10px;
+        background: var(--bg); padding: 12px;
+      }
+      .tracking-box.empty {
+        border-style: dashed;
+        background: var(--surface);
+      }
+      .tracking-number {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-weight: 700; letter-spacing: 0.02em;
+        overflow-wrap: anywhere; word-break: break-all;
+        user-select: text; -webkit-user-select: text;
+      }
       .vendor-order {
         border: 1px solid var(--border); border-radius: var(--radius);
         background: var(--surface); padding: 12px 16px;
       }
       ul.plain { list-style: none; margin: 0; padding: 0; }
       .hidden { display: none !important; }
+      /* Update-notification list */
+      .notify-row {
+        display: flex; align-items: center; gap: 10px;
+        border: 1px solid var(--border); border-radius: 10px;
+        background: var(--bg); padding: 10px 12px;
+      }
+      .notify-email {
+        min-width: 0; flex: 1; font-weight: 600;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        user-select: text; -webkit-user-select: text;
+      }
+      .notify-list-scroll { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+      .notify-optin {
+        display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+        border: 1px solid var(--border); border-radius: 10px;
+        background: var(--bg); padding: 12px; margin-top: 14px;
+      }
+      .notify-optin input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--accent); margin: 2px 0 0; }
+      .notify-code {
+        display: block; width: 100%; border: 1px solid var(--border); border-radius: 10px;
+        background: var(--bg-deep); color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; line-height: 18px; padding: 12px; overflow-x: auto; white-space: pre;
+      }
     </style>
   </head>
   <body>
@@ -401,8 +442,10 @@
               <button type="button" id="btn-stage-order" class="btn" style="margin-left:auto;flex-shrink:0;padding:10px 16px">+ Stage an order</button>
             </div>
             <p class="t-sm dim" style="margin:6px 0 0">
-              Filament you've ordered that hasn't landed yet. When a box arrives, mark its order
-              received and every roll in it is added to the inventory at once, at the cost on the order.
+              Filament you've ordered that hasn't landed yet. Each order has its own spot for a
+              tracking number — add it when you stage the order or any time after, right on the
+              order card. When a box arrives, mark its order received and every roll in it is
+              added to the inventory at once, at the cost on the order.
             </p>
             <div id="orders-empty" class="hidden" style="margin-top:12px;border:1px dashed var(--border);border-radius:var(--radius);background:var(--surface);padding:20px 16px;text-align:center">
               <p style="margin:0;font-weight:600">Nothing on the way right now</p>
@@ -498,6 +541,105 @@
             </div>
           </section>
 
+          <section aria-label="Update notifications" style="margin-top:40px">
+            <div class="section-head">
+              <span aria-hidden="true" class="he-section-bar"></span>
+              <h2 class="section-title">Update notifications</h2>
+              <span class="pill" id="notify-count-pill" style="margin-left:auto;flex-shrink:0">0 emails</span>
+            </div>
+            <div class="he-card" style="margin-top:12px;padding:16px">
+              <p class="t-sm dim" style="margin:0">
+                When someone creates a Filament Manager account and leaves the updates box checked,
+                their email joins this list so an automated email can notify accounts about updates.
+                The list on this device collects the accounts created here; the shared cloud list
+                (see “For the admin” below) collects sign-ups from every device into one place.
+                The full list is private: only the Hyde Eden 3D owner account can see it — everyone
+                else sees just their own subscription below.
+              </p>
+              <div style="margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);padding:12px">
+                <span class="t-sm" style="min-width:0;flex:1">
+                  <span style="display:block;font-weight:700">Your subscription</span>
+                  <span class="dim" id="notify-self-status" style="display:block;margin-top:2px">Checking…</span>
+                </span>
+                <button type="button" id="btn-notify-toggle-self" class="btn" style="padding:8px 14px;min-height:40px">Unsubscribe</button>
+              </div>
+              <p class="t-sm ok-text hidden" id="notify-feedback" style="margin:10px 0 0;font-weight:600"></p>
+              <p class="t-sm dim hidden" id="notify-nonowner-note" style="margin:10px 0 0">The addresses themselves stay with the owner — that's who sends the update emails. Your own address is never shown to other accounts.</p>
+
+              <div id="notify-owner-block" class="hidden">
+              <h3 class="t-xs" style="margin:20px 0 0;font-weight:600;letter-spacing:0.12em;text-transform:uppercase"><span class="he-label-text">Notification list — owner view</span></h3>
+              <div id="notify-empty" class="hidden" style="margin-top:8px;border:1px dashed var(--border);border-radius:10px;background:var(--surface);padding:16px;text-align:center">
+                <p style="margin:0;font-weight:600">No emails on the list yet</p>
+                <p class="t-sm dim" style="margin:4px auto 0;max-width:24rem">Create an account and its email lands here automatically. You can also add an address by hand below.</p>
+              </div>
+              <div id="notify-list" class="notify-list-scroll" style="margin-top:8px"></div>
+              <p class="t-sm dim" style="margin:8px 0 0" id="notify-cloud-status">List is kept on this device and, when the shared list is enabled, synced to the cloud so sign-ups from other devices join it too.</p>
+
+              <form id="notify-add-form" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">
+                <label class="hidden" for="notify-add-email">Add an email to the notification list</label>
+                <input id="notify-add-email" type="email" class="input" placeholder="Add an email by hand — e.g. maker@example.com" autocomplete="email" inputmode="email" style="flex:1;min-width:200px" />
+                <button type="submit" class="btn" style="padding:10px 16px">Add to list</button>
+              </form>
+              <p class="t-sm low-text hidden" id="notify-add-error" role="alert" style="margin:8px 0 0;font-weight:600"></p>
+
+              <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px">
+                <button type="button" id="btn-notify-copy" class="btn" style="padding:10px 16px">Copy all emails</button>
+                <button type="button" id="btn-notify-csv" class="btn" style="padding:10px 16px">Download CSV</button>
+                <button type="button" id="btn-notify-txt" class="btn" style="padding:10px 16px">Download .txt</button>
+              </div>
+              <p class="t-sm dim" style="margin:8px 0 0">CSV and .txt are the import formats mail senders (Resend, Mailchimp, SendGrid, your own script) expect — download the list and feed it straight to your automated send.</p>
+
+              <h3 class="t-xs" style="margin:24px 0 0;font-weight:600;letter-spacing:0.12em;text-transform:uppercase"><span class="he-label-text">Send an update</span></h3>
+              <p class="t-sm dim" style="margin:6px 0 0">Draft the announcement once, then send it to the whole list. “Open in mail app” BCCs everyone so addresses stay private; for hands-off automation, use the downloaded list with your sender instead.</p>
+              <label class="label" for="notify-subject" style="margin-top:12px"><span class="he-label-text">Subject</span></label>
+              <input id="notify-subject" class="input" style="margin-top:4px" value="Filament Manager — what's new" />
+              <label class="label" for="notify-body" style="margin-top:12px"><span class="he-label-text">Message</span></label>
+              <textarea id="notify-body" class="input" rows="5" style="margin-top:4px;resize:vertical">Hi — a quick update from Hyde Eden 3D.
+
+Filament Manager has been updated. Open the app and tap Refresh to pick up the latest version — your inventory syncs automatically, nothing to reinstall.
+
+Thanks for using Filament Manager.</textarea>
+              <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+                <a id="btn-notify-mailto" class="btn btn-cta btn-press" href="#" style="padding:12px 20px;text-decoration:none">Open in mail app — BCC all</a>
+                <button type="button" id="btn-notify-copy-draft" class="btn" style="padding:12px 16px">Copy email draft</button>
+              </div>
+
+              <details style="margin-top:20px">
+                <summary class="t-sm" style="cursor:pointer;font-weight:700;padding:8px 0">For the admin — turn on the shared cloud list &amp; automation</summary>
+                <div class="t-sm dim" style="margin-top:4px;display:flex;flex-direction:column;gap:10px">
+                  <p style="margin:0">By default this page keeps the list on each device. To collect <strong style="color:var(--text)">every</strong> sign-up — from any phone or PC — into one shared list, create this table once in the Supabase dashboard (SQL Editor → New query → Run). The app already writes to it on every account creation and, for the owner account only, reads it back here; until the table exists, those writes quietly fall back to the on-device list. The policies below are owner-only by design: an account can subscribe or unsubscribe <em>its own</em> address, but only the owner account (<strong style="color:var(--text)">hydeeden@jgettys.com</strong> — it must match the email on the owner's Filament Manager account exactly) can read the list or remove someone else.</p>
+                  <code class="notify-code">create table if not exists public.notification_subscribers (
+  email text primary key,
+  user_id uuid,
+  source text not null default 'signup',
+  created_at timestamptz not null default now()
+);
+alter table public.notification_subscribers enable row level security;
+create policy "subscribe your own email"
+  on public.notification_subscribers for insert
+  to authenticated
+  with check (
+    email = (auth.jwt() ->> 'email')
+    or (auth.jwt() ->> 'email') = 'hydeeden@jgettys.com'
+  );
+create policy "owner reads the list"
+  on public.notification_subscribers for select
+  to authenticated
+  using ((auth.jwt() ->> 'email') = 'hydeeden@jgettys.com');
+create policy "unsubscribe your own email"
+  on public.notification_subscribers for delete
+  to authenticated
+  using (
+    email = (auth.jwt() ->> 'email')
+    or (auth.jwt() ->> 'email') = 'hydeeden@jgettys.com'
+  );</code>
+                  <p style="margin:0">Then point your automated sender at the list: schedule it to read <code style="color:var(--text)">notification_subscribers</code> with the project's service-role key (or import the CSV above) and send the update to every row. Supabase Auth → Users remains the master record of accounts; this list is the mailing copy built from those creations. Anyone can unsubscribe with the button above, which removes them from both copies.</p>
+                </div>
+              </details>
+              </div>
+            </div>
+          </section>
+
           <footer style="margin-top:48px;text-align:center">
             <div aria-hidden="true" class="he-gradient" style="height:4px;width:100%;border-radius:999px"></div>
             <img src="assets/hyde-eden-3d-logo.png" alt="Hyde Eden 3D" style="display:block;margin:20px auto 0;height:auto;width:100%;max-width:220px" />
@@ -523,6 +665,13 @@
             <input id="auth-email" type="email" class="input" style="margin-top:4px" autocomplete="email" inputmode="email" placeholder="you@example.com" />
             <label class="label" for="auth-password" style="margin-top:14px"><span class="he-label-text">Password</span></label>
             <input id="auth-password" type="password" class="input" style="margin-top:4px" autocomplete="current-password" placeholder="Your password" />
+            <label class="notify-optin" for="auth-notify-optin">
+              <input id="auth-notify-optin" type="checkbox" checked />
+              <span>
+                <span class="t-sm" style="display:block;font-weight:700">Email me about updates</span>
+                <span class="t-sm dim" style="display:block;margin-top:2px">When you create an account, your email joins the update list so an automated email can notify you about new Filament Manager features and fixes. Uncheck to create the account without joining.</span>
+              </span>
+            </label>
             <p class="t-sm low-text hidden" id="auth-error" role="alert" style="margin:12px 0 0;font-weight:600"></p>
             <p class="t-sm ok-text hidden" id="auth-note" style="margin:12px 0 0;font-weight:600"></p>
             <button type="submit" id="auth-submit" class="btn btn-cta btn-press" style="margin-top:16px;width:100%;padding:12px 20px;font-size:16px">Sign in</button>
@@ -1157,6 +1306,8 @@
           vendor: o.vendor || "",
           order_number: pickField(o, "order_number", "orderNumber") || "",
           order_date: pickField(o, "order_date", "orderDate") || "",
+          tracking_number: pickField(o, "tracking_number", "trackingNumber") || "",
+          carrier: o.carrier || "",
           total_cents: pickField(o, "total_cents", "totalCents") != null ? pickField(o, "total_cents", "totalCents") : null,
           notes: o.notes || "",
           status: o.status === "received" ? "received" : "incoming",
@@ -1468,6 +1619,8 @@
           vendor: input.vendor,
           order_number: input.order_number || "",
           order_date: input.order_date,
+          tracking_number: input.tracking_number || "",
+          carrier: input.carrier || "",
           total_cents: input.total_cents != null ? input.total_cents : null,
           notes: input.notes || "",
           status: "incoming",
@@ -1484,6 +1637,22 @@
         };
         state.incomingOrders.push(order);
         return order.id;
+      }
+      /* Tracking can be filled in — or corrected — at any time:
+         when the order is staged, later when the shipping email
+         arrives, or after the box lands. It lives on the order
+         itself, separate from the free-form notes. */
+      function updateOrderTracking(id, trackingNumber, carrier) {
+        var order = null;
+        state.incomingOrders.forEach(function (o) { if (o.id === id) order = o; });
+        if (!order) return { ok: false, error: "That order is no longer on the list." };
+        order.tracking_number = String(trackingNumber == null ? "" : trackingNumber).trim();
+        order.carrier = String(carrier == null ? "" : carrier).trim();
+        return { ok: true, error: "" };
+      }
+      function trackingLabel(o) {
+        if (!o || !o.tracking_number) return "";
+        return o.carrier ? o.carrier + " · " + o.tracking_number : o.tracking_number;
       }
       /* Marks an order received: every roll enters the inventory
          under the order's vendor at its per-roll cost, combining on
@@ -1539,6 +1708,120 @@
         var key = name.toLowerCase();
         var exists = state.customCatalogs.some(function (c) { return c.brand.trim().toLowerCase() === key; });
         if (!exists) state.customCatalogs.push({ brand: name, types: [], note: "" });
+      }
+    </script>
+    <script>
+      "use strict";
+      /* ---------- update-notification list ----------
+         Built from account creations: every successful sign-up
+         adds its email here so one automated update email can
+         notify all accounts. Two copies are kept in step:
+         (1) an on-device registry in this browser, which works
+         with no setup at all, and (2) — when the admin has created
+         it — the shared public.notification_subscribers table in
+         Supabase, which collects sign-ups from every device into
+         one list. Cloud writes are best-effort: when the table
+         isn't there yet they fail silently and the on-device copy
+         still holds the address. */
+      var NOTIFY_KEY = "filament-manager-standalone:notify-list:v1";
+      var notifyCloudOk = null; /* null = not tried yet */
+      /* The full list is the owner's alone: only the Hyde Eden 3D
+         owner account sees the addresses, the exports, and the
+         send tools. Every other account sees only its own
+         subscription status — the cloud policies in the admin
+         note enforce the same split server-side. */
+      var FM_OWNER_EMAIL = "hydeeden@jgettys.com";
+      function notifyIsOwner() {
+        return typeof session !== "undefined" && !!session && !!session.user &&
+          notifyNormalizeEmail(session.user.email) === FM_OWNER_EMAIL;
+      }
+      function notifyNormalizeEmail(email) {
+        return String(email || "").trim().toLowerCase();
+      }
+      function notifyValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+      function notifyLoad() {
+        try {
+          var raw = localStorage.getItem(NOTIFY_KEY);
+          if (!raw) return [];
+          var parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return [];
+          var seen = new Map();
+          parsed.forEach(function (row) {
+            if (!row || !row.email) return;
+            var email = notifyNormalizeEmail(row.email);
+            if (!notifyValidEmail(email)) return;
+            if (!seen.has(email)) {
+              seen.set(email, {
+                email: email,
+                created_at: row.created_at || "",
+                source: row.source || "signup",
+              });
+            }
+          });
+          return Array.from(seen.values()).sort(function (a, b) { return cmpStr(a.email, b.email); });
+        } catch (e) { return []; }
+      }
+      function notifySave(list) {
+        try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(list)); } catch (e) { /* storage blocked: list lives for this visit only */ }
+      }
+      function notifyHas(email) {
+        var target = notifyNormalizeEmail(email);
+        return notifyLoad().some(function (r) { return r.email === target; });
+      }
+      /* Adds an email to the on-device list; returns true when it
+         was newly added. Cloud sync is kicked off separately by
+         notifySubscribe so this stays synchronous for callers. */
+      function notifyAddLocal(email, source) {
+        var clean = notifyNormalizeEmail(email);
+        if (!notifyValidEmail(clean)) return false;
+        var list = notifyLoad();
+        if (list.some(function (r) { return r.email === clean; })) return false;
+        list.push({ email: clean, created_at: new Date().toISOString(), source: source || "signup" });
+        list.sort(function (a, b) { return cmpStr(a.email, b.email); });
+        notifySave(list);
+        return true;
+      }
+      function notifyRemoveLocal(email) {
+        var clean = notifyNormalizeEmail(email);
+        notifySave(notifyLoad().filter(function (r) { return r.email !== clean; }));
+      }
+      /* Opt-outs are remembered separately so an account that
+         unchecked the box at sign-up — or unsubscribed later —
+         isn't quietly re-added the next time the app opens. */
+      var NOTIFY_OPTOUT_KEY = "filament-manager-standalone:notify-optout:v1";
+      function notifyOptOutLoad() {
+        try {
+          var parsed = JSON.parse(localStorage.getItem(NOTIFY_OPTOUT_KEY) || "[]");
+          return Array.isArray(parsed) ? parsed.map(notifyNormalizeEmail) : [];
+        } catch (e) { return []; }
+      }
+      function notifyOptOutHas(email) {
+        return notifyOptOutLoad().indexOf(notifyNormalizeEmail(email)) !== -1;
+      }
+      function notifyOptOutSet(email, optedOut) {
+        var clean = notifyNormalizeEmail(email);
+        var list = notifyOptOutLoad().filter(function (e) { return e !== clean; });
+        if (optedOut) list.push(clean);
+        try { localStorage.setItem(NOTIFY_OPTOUT_KEY, JSON.stringify(list)); } catch (e) { /* best effort */ }
+      }
+      function notifyMergeCloud(rows) {
+        if (!Array.isArray(rows)) return;
+        var list = notifyLoad();
+        var have = new Set(list.map(function (r) { return r.email; }));
+        var changed = false;
+        rows.forEach(function (row) {
+          var email = notifyNormalizeEmail(row && row.email);
+          if (!notifyValidEmail(email) || have.has(email)) return;
+          have.add(email);
+          list.push({ email: email, created_at: row.created_at || "", source: row.source || "signup" });
+          changed = true;
+        });
+        if (changed) {
+          list.sort(function (a, b) { return cmpStr(a.email, b.email); });
+          notifySave(list);
+        }
       }
     </script>
     <script>
@@ -1733,6 +2016,9 @@
           ? "Already have an account? Sign in"
           : "New to Filament Manager? Create an account";
         $("auth-password").setAttribute("autocomplete", signup ? "new-password" : "current-password");
+        /* The updates opt-in belongs to account creation only. */
+        var optIn = document.querySelector(".notify-optin");
+        if (optIn) optIn.style.display = signup ? "" : "none";
       }
       function showGate(notice) {
         $("dialog-root").innerHTML = "";
@@ -1749,6 +2035,12 @@
         $("app").classList.remove("hidden");
         var emailEl = $("account-email");
         if (emailEl) emailEl.textContent = session && session.user ? session.user.email : "";
+        /* Update-notification list: this account belongs on it,
+           and the shared cloud copy (when enabled) is pulled in
+           so sign-ups from other devices show up here too. */
+        if (typeof notifyEnsureSelf === "function") notifyEnsureSelf();
+        if (typeof notifyFetchCloud === "function") notifyFetchCloud();
+        if (typeof renderNotify === "function") renderNotify();
         var cached = cacheLoad();
         if (cached) {
           setState(normalizeState(cached.state));
@@ -1823,6 +2115,9 @@
         if (authBusy) return;
         var email = $("auth-email").value.trim();
         var password = $("auth-password").value;
+        var notifyOptInEl = $("auth-notify-optin");
+        var notifyOptIn = !notifyOptInEl || notifyOptInEl.checked;
+        var wasSignup = authMode === "signup";
         if (!email || !password) {
           showAuthMessage("error", "Enter your email and a password.");
           return;
@@ -1859,13 +2154,33 @@
           }
           if (!r.data.access_token) {
             /* Signup succeeded but the project asks for an email
-               confirmation before the first sign-in. */
+               confirmation before the first sign-in. The account
+               was still created, so its email joins the update
+               list now (unless the box was unchecked). */
+            if (wasSignup && notifyOptIn && typeof notifyAddLocal === "function") {
+              notifyAddLocal(email, "signup");
+            }
+            if (wasSignup && !notifyOptIn && typeof notifyOptOutSet === "function") {
+              notifyOptOutSet(email, true);
+            }
             authMode = "signin";
             renderAuthMode();
             showAuthMessage("note", "Account created — check your email for the confirmation link, then sign in here.");
             return;
           }
+          /* Account creation is what builds the list: a sign-up
+             that left the updates box checked is subscribed right
+             away, so the automated update email can reach it.
+             Plain sign-ins don't re-subscribe anyone who opted
+             out — enterApp only backfills accounts that predate
+             the list and have never been on it. */
           applyAuthResponse(r.data);
+          if (wasSignup && !notifyOptIn && typeof notifyOptOutSet === "function") {
+            notifyOptOutSet(email, true);
+          }
+          if (wasSignup && notifyOptIn && typeof notifySubscribe === "function") {
+            notifySubscribe(email, "signup");
+          }
           $("auth-password").value = "";
           showAuthMessage("", "");
           enterApp();
@@ -2046,6 +2361,10 @@
         vendorPick: "",
         confirmReceiveId: null,
         orderErrors: {},
+        trackingEditId: null,
+        trackingDraft: { carrier: "", trackingNumber: "" },
+        trackingErrors: {},
+        trackingSavedId: null,
       };
       function activeFilterCount() {
         var f = ui.filters;
@@ -2247,6 +2566,53 @@
             "</span></li>";
         }).join("");
       }
+      /* The dedicated tracking spot on an incoming order card.
+         Filled in at any time: at staging, later from the card
+         itself, with no need to restage or edit the whole order. */
+      function orderTrackingHtml(o) {
+        var editing = ui.trackingEditId === o.id;
+        if (editing) {
+          var draft = ui.trackingDraft || { carrier: "", trackingNumber: "" };
+          var html = '<div class="tracking-box">';
+          html += '<label class="label" for="tracking-number-' + o.id + '"><span class="he-label-text">Tracking number</span></label>' +
+            '<input id="tracking-number-' + o.id + '" data-tracking-number-input="' + o.id + '" class="input" style="margin-top:4px" value="' + esc(draft.trackingNumber) + '" placeholder="e.g. UUS6BN3970505729551" autocomplete="off" autocapitalize="characters" spellcheck="false" />';
+          html += '<label class="label" for="tracking-carrier-' + o.id + '" style="margin-top:12px"><span class="he-label-text">Carrier (optional)</span></label>' +
+            '<input id="tracking-carrier-' + o.id + '" data-tracking-carrier-input="' + o.id + '" class="input" style="margin-top:4px" value="' + esc(draft.carrier) + '" placeholder="e.g. UniUni, UPS, FedEx, USPS, DHL" autocomplete="off" spellcheck="false" />';
+          html += '<p class="t-sm dim" style="margin:8px 0 0">Saves to this order and syncs with your inventory. Leave the number blank and save to clear it.</p>';
+          if (ui.trackingErrors[o.id]) {
+            html += '<p class="t-sm low-text" style="margin:8px 0 0;font-weight:600">' + esc(ui.trackingErrors[o.id]) + "</p>";
+          }
+          html += '<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">' +
+            '<button type="button" class="btn btn-cta" data-order-action="tracking-save" data-id="' + o.id + '" style="padding:10px 16px">Save tracking</button>' +
+            '<button type="button" class="btn" data-order-action="tracking-cancel" data-id="' + o.id + '" style="padding:10px 16px">Cancel</button>' +
+            "</div>";
+          html += "</div>";
+          return html;
+        }
+        if (o.tracking_number) {
+          var filled = '<div class="tracking-box">';
+          filled += '<p class="t-xs" style="margin:0;font-weight:600;letter-spacing:0.12em;text-transform:uppercase"><span class="he-label-text">Tracking</span></p>';
+          if (o.carrier) {
+            filled += '<p class="t-sm" style="margin:6px 0 0;font-weight:700">' + esc(o.carrier) + "</p>";
+          }
+          filled += '<p class="tracking-number" style="margin:2px 0 0">' + esc(o.tracking_number) + "</p>";
+          if (ui.trackingSavedId === o.id) {
+            filled += '<p class="t-sm ok-text" style="margin:8px 0 0;font-weight:600">Tracking saved.</p>';
+          }
+          filled += '<div style="margin-top:10px"><button type="button" class="btn" data-order-action="tracking-edit" data-id="' + o.id + '" style="padding:8px 14px;min-height:40px">Edit tracking</button></div>';
+          filled += "</div>";
+          return filled;
+        }
+        var empty = '<div class="tracking-box empty">';
+        empty += '<p class="t-sm" style="margin:0;font-weight:700">No tracking number yet</p>' +
+          '<p class="t-sm dim" style="margin:4px 0 0">Add it whenever the shipping email arrives — no need to restage the order.</p>';
+        if (ui.trackingSavedId === o.id) {
+          empty += '<p class="t-sm ok-text" style="margin:8px 0 0;font-weight:600">Tracking cleared.</p>';
+        }
+        empty += '<div style="margin-top:10px"><button type="button" class="btn" data-order-action="tracking-edit" data-id="' + o.id + '" style="padding:8px 14px;min-height:40px">+ Add tracking number</button></div>';
+        empty += "</div>";
+        return empty;
+      }
       function renderOrders() {
         var orders = sortedOrders();
         var incoming = orders.filter(function (o) { return o.status === "incoming"; });
@@ -2265,6 +2631,7 @@
             " · " + rolls + " " + (rolls === 1 ? "roll" : "rolls") + "</p>";
           html += '<ul class="plain" style="margin-top:12px;display:flex;flex-direction:column;gap:6px">' + orderItemsHtml(o) + "</ul>";
           if (o.notes) html += '<p class="t-sm dim" style="margin:10px 0 0">' + esc(o.notes) + "</p>";
+          html += orderTrackingHtml(o);
           if (ui.orderErrors[o.id]) {
             html += '<p class="t-sm low-text" style="margin:8px 0 0;font-weight:600">' + esc(ui.orderErrors[o.id]) + "</p>";
           }
@@ -2286,7 +2653,8 @@
           var total = o.total_cents != null ? o.total_cents : orderItemsTotalCents(o);
           return '<li class="order-line t-sm"><span style="font-weight:700">' + esc(o.vendor) + "</span>" +
             '<span class="dim"> — ordered ' + esc(fmtOrderDate(o.order_date)) + " · " + rolls + " " + (rolls === 1 ? "roll" : "rolls") + " · " + esc(fmtMoney(total)) +
-            (o.received_at ? " · received " + esc(fmtReceivedAt(o.received_at)) : "") + "</span></li>";
+            (o.received_at ? " · received " + esc(fmtReceivedAt(o.received_at)) : "") +
+            (o.tracking_number ? " · Tracking: " + esc(trackingLabel(o)) : "") + "</span></li>";
         }).join("");
       }
       function renderMatchLine() {
@@ -2488,6 +2856,7 @@
               '<p class="t-sm gold" style="margin:0;flex-shrink:0;font-weight:700">' + esc(fmtMoney(total)) + "</p></div>";
             html += '<p class="t-sm dim" style="margin:2px 0 0">' + rolls + " " + (rolls === 1 ? "roll" : "rolls") +
               (o.order_number ? " · Order # " + esc(o.order_number) : "") +
+              (o.tracking_number ? " · Tracking: " + esc(trackingLabel(o)) : "") +
               (o.status === "received" && o.received_at ? " · received " + esc(fmtReceivedAt(o.received_at)) : "") + "</p>";
             html += '<ul class="plain" style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + orderItemsHtml(o) + "</ul>";
             if (o.notes) html += '<p class="t-sm dim" style="margin:8px 0 0">' + esc(o.notes) + "</p>";
@@ -2502,6 +2871,7 @@
         renderSync();
         renderTotals();
         renderOrders();
+        if (typeof renderNotify === "function") renderNotify();
         var has = state.filaments.length > 0;
         $("inventory-empty").classList.toggle("hidden", has);
         $("inventory-block").classList.toggle("hidden", !has);
@@ -3287,7 +3657,7 @@
       var orderFormError = null;
       var EMPTY_ORDER_ITEM = { brand: "", type: "", color: "", packaging: "spool", rolls: "1", weight: String(DEFAULT_ROLL_SIZE_GRAMS), cost: "" };
       function blankOrderForm() {
-        return { vendor: "", orderNumber: "", orderDate: todayIso(), total: "", notes: "", items: [Object.assign({}, EMPTY_ORDER_ITEM)] };
+        return { vendor: "", orderNumber: "", orderDate: todayIso(), carrier: "", trackingNumber: "", total: "", notes: "", items: [Object.assign({}, EMPTY_ORDER_ITEM)] };
       }
       function openOrderForm() {
         orderForm = blankOrderForm();
@@ -3357,6 +3727,14 @@
           '<label for="o-date" class="label"><span class="he-label-text">Order date</span></label>' +
           '<input id="o-date" data-o-field="orderDate" type="date" value="' + esc(orderForm.orderDate) + '" class="input" style="margin-top:4px" />' +
           "</div></div>";
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div>' +
+          '<label for="o-tracking" class="label"><span class="he-label-text">Tracking number (optional)</span></label>' +
+          '<input id="o-tracking" data-o-field="trackingNumber" value="' + esc(orderForm.trackingNumber) + '" placeholder="Add now or later" autocomplete="off" autocapitalize="characters" spellcheck="false" class="input" style="margin-top:4px" />' +
+          '</div><div>' +
+          '<label for="o-carrier" class="label"><span class="he-label-text">Carrier (optional)</span></label>' +
+          '<input id="o-carrier" data-o-field="carrier" value="' + esc(orderForm.carrier) + '" placeholder="e.g. UniUni, UPS, USPS" autocomplete="off" spellcheck="false" class="input" style="margin-top:4px" />' +
+          "</div></div>" +
+          '<p class="t-sm dim" style="margin:-8px 0 0">No tracking yet? Leave it blank — you can add or change it on the order card at any time after staging.</p>';
         html += '<div><label for="o-total" class="label"><span class="he-label-text">Order total ($, optional)</span></label>' +
           '<input id="o-total" data-o-field="total" inputmode="decimal" value="' + esc(orderForm.total) + '" placeholder="What the whole order cost, tax included — blank totals the lines" class="input" style="margin-top:4px" /></div>';
         html += '<div id="o-items" style="display:flex;flex-direction:column;gap:16px">' + orderFormItemsHtml() + "</div>";
@@ -3365,7 +3743,7 @@
         html += '<div><button type="button" id="o-add-line" class="btn" style="padding:10px 16px">+ Add another line</button>' +
           '<p class="t-sm dim" style="margin:6px 0 0">One line per filament in the order — same filament, color, and packaging on one line, with its roll count.</p></div>';
         html += '<div><label for="o-notes" class="label"><span class="he-label-text">Notes (optional)</span></label>' +
-          '<input id="o-notes" data-o-field="notes" value="' + esc(orderForm.notes) + '" placeholder="e.g. Tracking number, what the filament is for" class="input" style="margin-top:4px" /></div>';
+          '<input id="o-notes" data-o-field="notes" value="' + esc(orderForm.notes) + '" placeholder="e.g. What the filament is for" class="input" style="margin-top:4px" /></div>';
         html += "</div>";
         html += '<p id="o-error" class="t-sm low-text' + (orderFormError ? "" : " hidden") + '" style="margin:12px 0 0;font-weight:600">' + esc(orderFormError || "") + "</p>";
         html += '<div style="margin-top:24px;display:flex;gap:8px">' +
@@ -3418,6 +3796,8 @@
           vendor: vendor,
           order_number: orderForm.orderNumber.trim(),
           order_date: orderForm.orderDate,
+          tracking_number: orderForm.trackingNumber.trim(),
+          carrier: orderForm.carrier.trim(),
           total_cents: totalCents,
           notes: orderForm.notes.trim(),
           items: items,
@@ -3524,6 +3904,189 @@
         $("filter-chevron").style.transform = open ? "rotate(180deg)" : "";
         if (open) renderFilterPanel();
       }
+
+      /* ---------- update-notification list: cloud + rendering ----------
+         The shared copy lives in public.notification_subscribers
+         (see the admin note in the Update notifications section).
+         Every call here is best-effort: a missing table or a
+         blocked request just leaves the on-device list in charge,
+         and the status line under the list says which is live. */
+      function notifyCloudUrl() {
+        return SB_URL + "/rest/v1/notification_subscribers";
+      }
+      function notifySubscribe(email, source) {
+        var clean = notifyNormalizeEmail(email);
+        if (!notifyValidEmail(clean)) return;
+        if (typeof notifyOptOutSet === "function") notifyOptOutSet(clean, false);
+        notifyAddLocal(clean, source || "signup");
+        renderNotify();
+        if (typeof sbFetch !== "function" || typeof sbHeaders !== "function") return;
+        var headers = sbHeaders({ Prefer: "resolution=ignore-duplicates,return=minimal" });
+        sbFetch(notifyCloudUrl(), {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            email: clean,
+            user_id: (typeof session !== "undefined" && session && session.user && session.user.email && notifyNormalizeEmail(session.user.email) === clean) ? session.user.id : null,
+            source: source || "signup",
+          }),
+        }).then(function (res) {
+          notifyCloudOk = !!res.ok;
+          renderNotify();
+          if (res.ok) notifyFetchCloud();
+        }).catch(function () {
+          notifyCloudOk = false;
+          renderNotify();
+        });
+      }
+      function notifyUnsubscribe(email) {
+        var clean = notifyNormalizeEmail(email);
+        if (typeof notifyOptOutSet === "function") notifyOptOutSet(clean, true);
+        notifyRemoveLocal(clean);
+        renderNotify();
+        if (typeof sbFetch !== "function" || typeof sbHeaders !== "function" || typeof session === "undefined" || !session) return;
+        sbFetch(notifyCloudUrl() + "?email=eq." + encodeURIComponent(clean), {
+          method: "DELETE",
+          headers: sbHeaders(),
+        }).then(function (res) {
+          notifyCloudOk = !!res.ok;
+          renderNotify();
+        }).catch(function () { /* on-device removal already done */ });
+      }
+      function notifyFetchCloud() {
+        /* Owner-only: ordinary accounts never pull the list —
+           the matching RLS policy refuses them server-side too. */
+        if (!notifyIsOwner()) return;
+        if (typeof sbFetch !== "function" || typeof sbHeaders !== "function" || typeof session === "undefined" || !session) return;
+        sbFetch(notifyCloudUrl() + "?select=email,created_at,source&order=email.asc", {
+          method: "GET",
+          headers: sbHeaders(),
+        }).then(function (res) {
+          if (!res.ok) { notifyCloudOk = false; renderNotify(); return null; }
+          notifyCloudOk = true;
+          return res.json();
+        }).then(function (rows) {
+          if (rows) { notifyMergeCloud(rows); renderNotify(); }
+        }).catch(function () {
+          notifyCloudOk = false;
+          renderNotify();
+        });
+      }
+      /* The signed-in account belongs on the list: account
+         creation put it there, and this backfills accounts made
+         before the list existed whenever they open the app. */
+      function notifyEnsureSelf() {
+        if (typeof session === "undefined" || !session || !session.user || !session.user.email) return;
+        if (typeof notifyOptOutHas === "function" && notifyOptOutHas(session.user.email)) return;
+        if (!notifyHas(session.user.email)) notifySubscribe(session.user.email, "account");
+      }
+      function notifyFeedback(msg, isError) {
+        var ok = $("notify-feedback");
+        var err = $("notify-add-error");
+        if (ok) { ok.classList.add("hidden"); ok.textContent = ""; }
+        if (err) { err.classList.add("hidden"); err.textContent = ""; }
+        var el = isError ? err : ok;
+        if (el && msg) { el.textContent = msg; el.classList.remove("hidden"); }
+      }
+      function notifyCopyText(text, doneMsg) {
+        function fallback() {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); notifyFeedback(doneMsg); }
+          catch (e) { notifyFeedback("Copy didn't work in this browser — download the list instead.", true); }
+          ta.remove();
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { notifyFeedback(doneMsg); }, fallback);
+        } else fallback();
+      }
+      function notifyDownload(filename, text, mime) {
+        try {
+          var blob = new Blob([text], { type: mime });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+          notifyFeedback("Downloaded " + filename + " — feed it to your mail sender to notify every account.");
+        } catch (e) {
+          notifyFeedback("The download didn't work in this browser — use Copy all emails instead.", true);
+        }
+      }
+      function renderNotify() {
+        var listEl = $("notify-list");
+        if (!listEl) return;
+        var isOwner = notifyIsOwner();
+        var ownerBlock = $("notify-owner-block");
+        if (ownerBlock) ownerBlock.classList.toggle("hidden", !isOwner);
+        var nonOwnerNote = $("notify-nonowner-note");
+        if (nonOwnerNote) nonOwnerNote.classList.toggle("hidden", isOwner);
+        var list = isOwner ? notifyLoad() : [];
+        var pill = $("notify-count-pill");
+        if (pill) {
+          pill.textContent = isOwner
+            ? list.length + " " + (list.length === 1 ? "email" : "emails")
+            : "Owner only";
+        }
+        var empty = $("notify-empty");
+        if (empty) empty.classList.toggle("hidden", !isOwner || list.length > 0);
+        listEl.innerHTML = !isOwner ? "" : list.map(function (row) {
+          var when = row.created_at ? fmtReceivedAt(row.created_at) : "";
+          var via = row.source === "manual" ? "added by hand" : row.source === "account" ? "account" : "account creation";
+          return '<div class="notify-row"><span class="notify-email" title="' + esc(row.email) + '">' + esc(row.email) + "</span>" +
+            '<span class="t-xs dim" style="flex-shrink:0;font-weight:600">' + esc(via) + (when ? " · " + esc(when) : "") + "</span>" +
+            '<button type="button" class="btn" data-notify-remove="' + esc(row.email) + '" aria-label="Remove ' + esc(row.email) + ' from the notification list" style="padding:6px 12px;min-height:36px;font-size:12px;flex-shrink:0">Remove</button></div>';
+        }).join("");
+        var selfEmail = (typeof session !== "undefined" && session && session.user) ? session.user.email : "";
+        var subscribed = selfEmail ? notifyHas(selfEmail) : false;
+        var status = $("notify-self-status");
+        if (status) {
+          status.textContent = selfEmail
+            ? (subscribed
+              ? selfEmail + " is on the list — update emails will reach this account."
+              : selfEmail + " is not on the list right now.")
+            : "Sign in to see your subscription.";
+        }
+        var toggle = $("btn-notify-toggle-self");
+        if (toggle) {
+          toggle.textContent = subscribed ? "Unsubscribe" : "Subscribe";
+          toggle.disabled = !selfEmail;
+        }
+        var cloud = $("notify-cloud-status");
+        if (cloud) {
+          cloud.textContent = notifyCloudOk === true
+            ? "Shared cloud list is live — sign-ups from any device join this list, ready for your automated sender."
+            : notifyCloudOk === false
+              ? "Showing the on-device list. The shared cloud list isn't switched on yet — see “For the admin” below to collect sign-ups from every device in one place."
+              : "List is kept on this device and, when the shared list is enabled, synced to the cloud so sign-ups from other devices join it too.";
+        }
+        var mailto = $("btn-notify-mailto");
+        if (mailto) {
+          var subject = ($("notify-subject") && $("notify-subject").value) || "Filament Manager — what's new";
+          var body = ($("notify-body") && $("notify-body").value) || "";
+          if (list.length === 0) {
+            mailto.setAttribute("aria-disabled", "true");
+            mailto.style.opacity = "0.5";
+            mailto.style.pointerEvents = "none";
+            mailto.removeAttribute("href");
+          } else {
+            mailto.removeAttribute("aria-disabled");
+            mailto.style.opacity = "";
+            mailto.style.pointerEvents = "";
+            var bcc = list.map(function (r) { return r.email; }).join(",");
+            mailto.href = "mailto:?bcc=" + encodeURIComponent(bcc) +
+              "&subject=" + encodeURIComponent(subject) +
+              "&body=" + encodeURIComponent(body);
+          }
+        }
+      }
     </script>
     <script>
       "use strict";
@@ -3571,6 +4134,69 @@
           renderAuthMode();
         });
         $("btn-print").addEventListener("click", downloadPrintableInventory);
+        /* Update-notification list controls. */
+        $("notify-add-form").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var input = $("notify-add-email");
+          var email = notifyNormalizeEmail(input.value);
+          if (!notifyValidEmail(email)) {
+            notifyFeedback("That doesn't look like a complete email address — check it and try again.", true);
+            return;
+          }
+          if (notifyHas(email)) {
+            notifyFeedback(email + " is already on the list.", true);
+            return;
+          }
+          notifySubscribe(email, "manual");
+          input.value = "";
+          notifyFeedback("Added " + email + " to the notification list.");
+        });
+        $("notify-list").addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-notify-remove]");
+          if (!btn) return;
+          var email = btn.getAttribute("data-notify-remove");
+          var isSelf = session && session.user && notifyNormalizeEmail(session.user.email) === notifyNormalizeEmail(email);
+          notifyUnsubscribe(email);
+          notifyFeedback(isSelf
+            ? "You've unsubscribed — update emails won't go to " + email + ". Use Subscribe above to rejoin."
+            : "Removed " + email + " from the notification list.");
+        });
+        $("btn-notify-toggle-self").addEventListener("click", function () {
+          if (!session || !session.user || !session.user.email) return;
+          var email = session.user.email;
+          if (notifyHas(email)) {
+            notifyUnsubscribe(email);
+            notifyFeedback("You've unsubscribed — update emails won't go to " + email + ".");
+          } else {
+            notifySubscribe(email, "account");
+            notifyFeedback("You're subscribed — update emails will go to " + email + ".");
+          }
+        });
+        $("btn-notify-copy").addEventListener("click", function () {
+          var list = notifyLoad();
+          if (list.length === 0) { notifyFeedback("The list is empty — there's nothing to copy yet.", true); return; }
+          notifyCopyText(list.map(function (r) { return r.email; }).join(", "), "Copied " + list.length + " " + (list.length === 1 ? "email" : "emails") + " — paste them into your mail sender.");
+        });
+        $("btn-notify-csv").addEventListener("click", function () {
+          var list = notifyLoad();
+          if (list.length === 0) { notifyFeedback("The list is empty — there's nothing to download yet.", true); return; }
+          var csv = "email,subscribed_at,source\r\n" + list.map(function (r) {
+            return '"' + r.email.replace(/"/g, '""') + '","' + String(r.created_at || "").replace(/"/g, '""') + '","' + String(r.source || "").replace(/"/g, '""') + '"';
+          }).join("\r\n") + "\r\n";
+          notifyDownload("filament-manager-update-list-" + todayIso() + ".csv", csv, "text/csv");
+        });
+        $("btn-notify-txt").addEventListener("click", function () {
+          var list = notifyLoad();
+          if (list.length === 0) { notifyFeedback("The list is empty — there's nothing to download yet.", true); return; }
+          notifyDownload("filament-manager-update-list-" + todayIso() + ".txt", list.map(function (r) { return r.email; }).join("\n") + "\n", "text/plain");
+        });
+        $("btn-notify-copy-draft").addEventListener("click", function () {
+          var subject = $("notify-subject").value;
+          var body = $("notify-body").value;
+          notifyCopyText("Subject: " + subject + "\n\n" + body, "Email draft copied — paste it into your sender with the downloaded list.");
+        });
+        $("notify-subject").addEventListener("input", renderNotify);
+        $("notify-body").addEventListener("input", renderNotify);
         $("search").addEventListener("input", function (e) {
           ui.search = e.target.value;
           renderMatchLine();
@@ -3609,13 +4235,54 @@
           renderVendorHistory();
         });
 
-        /* Incoming orders: receive / remove, delegated. */
+        /* Tracking drafts on order cards: typing only updates the
+           draft — no re-render, so the input keeps focus. */
+        $("orders-list").addEventListener("input", function (e) {
+          var t = e.target;
+          if (!t || typeof t.hasAttribute !== "function") return;
+          if (t.hasAttribute("data-tracking-number-input")) {
+            ui.trackingDraft = Object.assign({}, ui.trackingDraft, { trackingNumber: t.value });
+          } else if (t.hasAttribute("data-tracking-carrier-input")) {
+            ui.trackingDraft = Object.assign({}, ui.trackingDraft, { carrier: t.value });
+          }
+        });
+
+        /* Incoming orders: tracking / receive / remove, delegated. */
         $("orders-list").addEventListener("click", function (e) {
           var btn = e.target.closest("[data-order-action]");
           if (!btn) return;
           var id = Number(btn.getAttribute("data-id"));
           var action = btn.getAttribute("data-order-action");
-          if (action === "receive") {
+          if (action === "tracking-edit") {
+            var ord = null;
+            state.incomingOrders.forEach(function (o) { if (o.id === id) ord = o; });
+            ui.trackingEditId = id;
+            ui.trackingDraft = {
+              carrier: ord ? (ord.carrier || "") : "",
+              trackingNumber: ord ? (ord.tracking_number || "") : "",
+            };
+            delete ui.trackingErrors[id];
+            if (ui.trackingSavedId === id) ui.trackingSavedId = null;
+            renderOrders();
+            var tin = $("tracking-number-" + id);
+            if (tin) { tin.focus(); tin.select(); }
+          } else if (action === "tracking-cancel") {
+            ui.trackingEditId = null;
+            delete ui.trackingErrors[id];
+            renderOrders();
+          } else if (action === "tracking-save") {
+            var draft = ui.trackingDraft || { carrier: "", trackingNumber: "" };
+            var tres = null;
+            mutate(function () { tres = updateOrderTracking(id, draft.trackingNumber, draft.carrier); });
+            if (tres && tres.ok) {
+              ui.trackingEditId = null;
+              ui.trackingSavedId = id;
+              delete ui.trackingErrors[id];
+            } else if (tres) {
+              ui.trackingErrors[id] = tres.error;
+            }
+            renderOrders();
+          } else if (action === "receive") {
             ui.confirmReceiveId = id;
             delete ui.orderErrors[id];
             renderOrders();
@@ -3626,6 +4293,7 @@
             var res = null;
             mutate(function () { res = receiveIncomingOrder(id); });
             ui.confirmReceiveId = null;
+            if (ui.trackingEditId === id) ui.trackingEditId = null;
             if (res && !res.ok) {
               ui.orderErrors[id] = res.error;
               renderOrders();
